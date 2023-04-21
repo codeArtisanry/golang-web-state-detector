@@ -1,4 +1,15 @@
-## Golang Web State Detector
+<div align="center">
+
+# Golang Web State Detector 
+
+</div>
+
+<div align="center"> 
+
+  ![image](https://user-images.githubusercontent.com/87218847/233613380-385bb6a1-8c9c-4156-9283-791bb92ba56f.png) 
+
+</div>
+
 A simple tool written in Golang to detect the state (stateful or stateless) of a website. The tool analyzes various aspects of a website, such as cookies, caching, redirects, HTTP methods, AJAX requests, and WebSocket connections, to determine its state.
 
 The tool uses regular expressions to match patterns in the website's response headers and body. It returns the state of the website as "stateful" or "stateless", along with the reason for its state. If the tool is unable to determine the website's state, it returns "not sure".
