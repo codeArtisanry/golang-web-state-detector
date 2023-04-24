@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 func main() {
@@ -55,71 +56,123 @@ func main() {
 }
 
 func isStateful(body string) bool {
+	var wg sync.WaitGroup
+	var hasCookies, hasSessionID, hasHiddenFields, hasJsCookiesOrFormData, hasNonStandardHttpMethods, hasAjaxRequests, hasWebSockets bool
+
 	// Check for cookies
-	if strings.Contains(body, "Set-Cookie") {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if strings.Contains(body, "Set-Cookie") {
+			hasCookies = true
+		}
+	}()
 
 	// Check for session ID in URL
-	re := regexp.MustCompile(`([?&])[^=]+=[^&]*PHPSESSID=[^&]+`)
-	if re.MatchString(body) {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		re := regexp.MustCompile(`([?&])[^=]+=[^&]*PHPSESSID=[^&]+`)
+		if re.MatchString(body) {
+			hasSessionID = true
+		}
+	}()
 
 	// Check for hidden form fields
-	re = regexp.MustCompile(`type=["']hidden["']`)
-	if re.MatchString(body) {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		re := regexp.MustCompile(`type=["']hidden["']`)
+		if re.MatchString(body) {
+			hasHiddenFields = true
+		}
+	}()
 
 	// Check for JavaScript code that sets cookies or modifies form data
-	re = regexp.MustCompile(`(?s)<script.*?</script>`)
-	scripts := re.FindAllString(body, -1)
-	for _, script := range scripts {
-		if strings.Contains(script, "document.cookie") || strings.Contains(script, ".value") {
-			return true
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		re := regexp.MustCompile(`(?s)<script.*?</script>`)
+		scripts := re.FindAllString(body, -1)
+		for _, script := range scripts {
+			if strings.Contains(script, "document.cookie") || strings.Contains(script, ".value") {
+				hasJsCookiesOrFormData = true
+				break
+			}
 		}
-	}
+	}()
 
 	// Check for HTTP methods other than GET and POST
-	re = regexp.MustCompile(`method=["'](PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE|CONNECT)["']`)
-	if re.MatchString(body) {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		re := regexp.MustCompile(`method=["'](PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE|CONNECT)["']`)
+		if re.MatchString(body) {
+			hasNonStandardHttpMethods = true
+		}
+	}()
 
 	// Check for AJAX requests
-	re = regexp.MustCompile(`(?s)<script.*?>.*?xmlhttprequest.*?</script>`)
-	if re.MatchString(body) {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		re := regexp.MustCompile(`(?s)<script.*?>.*?xmlhttprequest.*?</script>`)
+		if re.MatchString(body) {
+			hasAjaxRequests = true
+		}
+	}()
 
 	// Check for WebSocket connections
-	re = regexp.MustCompile(`(?s)<script.*?>.*?websocket.*?</script>`)
-	if re.MatchString(body) {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		re := regexp.MustCompile(`(?s)<script.*?>.*?websocket.*?</script>`)
+		if re.MatchString(body) {
+			hasWebSockets = true
+		}
+	}()
 
-	return false
+	// Wait for all the goroutines to finish
+	wg.Wait()
+
+	return hasCookies && hasSessionID && hasHiddenFields && hasJsCookiesOrFormData && hasNonStandardHttpMethods && hasAjaxRequests && hasWebSockets
 }
 
 func isStateless(body string) bool {
+	var wg sync.WaitGroup
+	var hasRestfulUrls, hasUrlQueryParams, hasNonStandardHttpMethods, hasAjaxRequests bool
+
 	// Check for RESTful URLs
-	re := regexp.MustCompile(`\/[a-zA-Z0-9_-]+`)
-	if re.MatchString(body) {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		re := regexp.MustCompile(`\/[a-zA-Z0-9_-]+`)
+		if re.MatchString(body) {
+			hasRestfulUrls = true
+		}
+	}()
 
 	// Check for URL query parameters
-	if strings.Contains(body, "?") {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if strings.Contains(body, "?") {
+			hasUrlQueryParams = true
+		}
+	}()
 
 	// Check for HTTP methods other than GET and POST
-	re = regexp.MustCompile(`method=["'](PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE|CONNECT)["']`)
-	if re.MatchString(body) {
-		return true
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		re := regexp.MustCompile(`method=["'](PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE|CONNECT)["']`)
+		if re.MatchString(body) {
+			hasNonStandardHttpMethods = true
+		}
+	}()
 
-	// Check for AJAX requests
-	return false
+	// Wait for all the goroutines to finish
+	wg.Wait()
+
+	return hasRestfulUrls && hasUrlQueryParams && hasNonStandardHttpMethods && hasAjaxRequests
 }
