@@ -135,7 +135,7 @@ func isStateful(body string) bool {
 	// Wait for all the goroutines to finish
 	wg.Wait()
 
-	return hasCookies && hasSessionID && hasHiddenFields && hasJsCookiesOrFormData && hasNonStandardHttpMethods && hasAjaxRequests && hasWebSockets
+	return hasCookies || hasSessionID || hasHiddenFields || hasJsCookiesOrFormData || hasNonStandardHttpMethods || hasAjaxRequests && hasWebSockets
 }
 
 func isStateless(body string) bool {
@@ -174,5 +174,5 @@ func isStateless(body string) bool {
 	// Wait for all the goroutines to finish
 	wg.Wait()
 
-	return hasRestfulUrls && hasUrlQueryParams && hasNonStandardHttpMethods && hasAjaxRequests
+	return hasRestfulUrls || hasUrlQueryParams || hasNonStandardHttpMethods || hasAjaxRequests
 }
