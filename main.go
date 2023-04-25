@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -52,8 +54,11 @@ func main() {
 		state = "Not sure"
 	}
 
-	fmt.Printf("The website %s is %s", *sitePtr, state)
+	fmt.Printf("\nThe website %s is %s", *sitePtr, state)
 }
+
+var logger = zap.NewExample()
+var log = logger.Sugar()
 
 func isStateful(body string) bool {
 	var wg sync.WaitGroup
@@ -63,19 +68,21 @@ func isStateful(body string) bool {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if strings.Contains(body, "Set-Cookie") {
+		if strings.Contains(body, "cookie") {
 			hasCookies = true
 		}
+		log.Infoln("Set Cookies", hasCookies)
 	}()
 
 	// Check for session ID in URL
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		re := regexp.MustCompile(`([?&])[^=]+=[^&]*PHPSESSID=[^&]+`)
+		re := regexp.MustCompile(`([?&])[^=]+=[^&]*PHPSESSID=[^&]+`) //TODO
 		if re.MatchString(body) {
 			hasSessionID = true
 		}
+		log.Infoln("Session ID", hasSessionID)
 	}()
 
 	// Check for hidden form fields
@@ -86,6 +93,7 @@ func isStateful(body string) bool {
 		if re.MatchString(body) {
 			hasHiddenFields = true
 		}
+		log.Infoln("Hidden Fields", hasHiddenFields)
 	}()
 
 	// Check for JavaScript code that sets cookies or modifies form data
@@ -100,6 +108,7 @@ func isStateful(body string) bool {
 				break
 			}
 		}
+		log.Infoln("JS Cookies or Form Data", hasJsCookiesOrFormData)
 	}()
 
 	// Check for HTTP methods other than GET and POST
@@ -110,6 +119,7 @@ func isStateful(body string) bool {
 		if re.MatchString(body) {
 			hasNonStandardHttpMethods = true
 		}
+		log.Infoln("Non Standard HTTP Methods", hasNonStandardHttpMethods)
 	}()
 
 	// Check for AJAX requests
@@ -120,6 +130,7 @@ func isStateful(body string) bool {
 		if re.MatchString(body) {
 			hasAjaxRequests = true
 		}
+		log.Infoln("AJAX Requests", hasAjaxRequests)
 	}()
 
 	// Check for WebSocket connections
@@ -130,17 +141,43 @@ func isStateful(body string) bool {
 		if re.MatchString(body) {
 			hasWebSockets = true
 		}
+		log.Infoln("Web Sockets", hasWebSockets)
 	}()
 
 	// Wait for all the goroutines to finish
 	wg.Wait()
 
-	return hasCookies || hasSessionID || hasHiddenFields || hasJsCookiesOrFormData || hasNonStandardHttpMethods || hasAjaxRequests && hasWebSockets
+	count := 0
+	if hasSessionID {
+		count++
+	}
+	if hasHiddenFields {
+		count++
+	}
+	if hasJsCookiesOrFormData {
+		count++
+	}
+	if hasNonStandardHttpMethods {
+		count++
+	}
+	if hasAjaxRequests {
+		count++
+	}
+	if hasWebSockets {
+		count++
+	}
+	if hasCookies {
+		count++
+	}
+
+	println("Stateful checks: ", count)
+	// If more than 2 of the above are true, then the site is stateful
+	return count >= 2
 }
 
 func isStateless(body string) bool {
 	var wg sync.WaitGroup
-	var hasRestfulUrls, hasUrlQueryParams, hasNonStandardHttpMethods, hasAjaxRequests bool
+	var hasRestfulUrls, hasUrlQueryParams, hasNonStandardHttpMethods bool
 
 	// Check for RESTful URLs
 	wg.Add(1)
@@ -150,6 +187,7 @@ func isStateless(body string) bool {
 		if re.MatchString(body) {
 			hasRestfulUrls = true
 		}
+		log.Infoln("RESTful URLs", hasRestfulUrls)
 	}()
 
 	// Check for URL query parameters
@@ -159,6 +197,7 @@ func isStateless(body string) bool {
 		if strings.Contains(body, "?") {
 			hasUrlQueryParams = true
 		}
+		log.Infoln("URL Query Params", hasUrlQueryParams)
 	}()
 
 	// Check for HTTP methods other than GET and POST
@@ -169,10 +208,24 @@ func isStateless(body string) bool {
 		if re.MatchString(body) {
 			hasNonStandardHttpMethods = true
 		}
+		log.Infoln("Non Standard HTTP Methods", hasNonStandardHttpMethods)
 	}()
 
 	// Wait for all the goroutines to finish
 	wg.Wait()
 
-	return hasRestfulUrls || hasUrlQueryParams || hasNonStandardHttpMethods || hasAjaxRequests
+	count := 0
+	if hasRestfulUrls {
+		count++
+	}
+	if hasUrlQueryParams {
+		count++
+	}
+	if hasNonStandardHttpMethods {
+		count++
+	}
+
+	println("Stateless checks: ", count)
+	// If more than 1 of the above are true, then the site is stateless
+	return count >= 1
 }
